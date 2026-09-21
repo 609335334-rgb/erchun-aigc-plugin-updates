@@ -24,7 +24,7 @@ from plugin_utils import load_plugin_config
 
 _PLUGIN_FILE = __file__
 _PLUGIN_ID = "video_plugin_erchun_aigc"
-_PLUGIN_VERSION = "1.1.0"
+_PLUGIN_VERSION = "1.1.1"
 _DEFAULT_BASE_URL = "https://api.erchun.youkou.cc"
 _DEFAULT_UPDATE_MANIFEST_URL = (
     "https://cdn.jsdelivr.net/gh/609335334-rgb/"
@@ -709,21 +709,41 @@ def _submit_video(base_url, api_key, payload, timeout):
     raise RuntimeError("创建任务重试次数已用尽")
 
 
-def _download_content(url, timeout):
+def _video_output_path(context):
+    output_dir = context.get("project_path") or context.get("output_dir")
+    if not output_dir:
+        raise RuntimeError("宿主未提供项目输出目录，无法回传生成视频")
+    viewer_index = int(context.get("viewer_index") or 0)
+    unique_name = str(context.get("unique_name") or "erchun_video")
+    unique_name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", unique_name).strip(" .") or "erchun_video"
+    generation_round = int(context.get("generation_round") or 0)
+    positions = context.get("output_position") or [0]
+    position = positions[0] if isinstance(positions, list) and positions else 0
+    filename = "%04d_%s_%s_%s.mp4" % (viewer_index, unique_name, generation_round, position)
+    return os.path.abspath(os.path.join(str(output_dir), filename))
+
+
+def _download_content(url, timeout, target):
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise RuntimeError("上游结果地址不是 http(s) URL")
     # 结果下载是独立请求，绝不附带平台 Bearer 或 Cookie。
     response = requests.get(url, timeout=timeout, stream=True)
     response.raise_for_status()
-    suffix = Path(parsed.path).suffix or ".mp4"
-    target = os.path.join(tempfile.mkdtemp(prefix="erchun_video_"), "result" + suffix)
+    content_type = str(response.headers.get("Content-Type") or "").lower()
+    if content_type and "video" not in content_type and "octet-stream" not in content_type:
+        raise RuntimeError("上游结果不是视频文件（Content-Type: %s）" % content_type)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
     with open(target, "wb") as handle:
         for chunk in response.iter_content(chunk_size=1024 * 1024):
             if chunk:
                 handle.write(chunk)
-    if os.path.getsize(target) == 0:
+    if os.path.getsize(target) < 1024:
         raise RuntimeError("上游结果下载为空")
+    with open(target, "rb") as handle:
+        header = handle.read(32)
+    if len(header) < 12 or header[4:8] != b"ftyp":
+        raise RuntimeError("上游结果不是有效 MP4 视频")
     return target
 
 
@@ -817,7 +837,10 @@ def generate(context):
     interval = max(1, int(params.get("poll_interval") or 5))
     max_wait = max(1, int(params.get("max_wait_minutes") or 30)) * 60
     url = _poll_task(params["base_url"], api_key, created["status_url"], timeout, interval, max_wait)
-    return [_download_content(url, timeout)]
+    target = _video_output_path(context)
+    result_path = _download_content(url, timeout, target)
+    print("贰春视频已回传：%s" % result_path)
+    return [result_path]
 
 
 def handle_action(action, data=None):

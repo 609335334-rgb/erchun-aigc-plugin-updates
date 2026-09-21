@@ -2,10 +2,10 @@
   "plugins": [
     {
       "plugin_id": "video_plugin_erchun_aigc",
-      "version": "1.1.0",
-      "download_url": "https://cdn.jsdelivr.net/gh/609335334-rgb/erchun-aigc-plugin-updates@main/video_plugin_erchun_aigc-1.1.0.zip",
-      "sha256": "abeb4e8322aeb755c444f869a42d9c977a1c0700b4c3b29610d702098ab28de5",
-      "changelog": "新增贰春账户积分与 Token 额度查询；按模型、清晰度和时长动态预估积分消耗；新增安全自动更新；保留音频素材正确分类与原始 MIME 上传。"
+      "version": "1.1.1",
+      "download_url": "https://cdn.jsdelivr.net/gh/609335334-rgb/erchun-aigc-plugin-updates@main/video_plugin_erchun_aigc-1.1.1.zip",
+      "sha256": "9726b3f1d42e1ac68c8d7e5bae69f9b3b91b98266c7f2f1ca830929c17dadf61",
+      "changelog": "修复生成完成后视频未回传字字动画：结果 MP4 现在直接保存到项目输出目录，并按分镜、轮次和位置命名后返回给宿主。"
     }
   ]
 }
